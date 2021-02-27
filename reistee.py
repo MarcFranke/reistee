@@ -218,7 +218,35 @@ def pic_to_pdf(pdf_filename, picture_files):
         os.remove(pdf)
 
 
+def check_libreoffice_install():
+    '''
+    Checks, if Libreoffice is installed in the default
+    directories or if it is listed in the path environmental
+    variable. If not, returns an empty string
+    '''
 
+    libreoffice_x64_path = (
+        "C:\\Program Files\\LibreOffice\\program\\soffice.exe")
+    
+    # I hope that's true
+    libreoffice_x86_path = (
+        "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe")
+
+    libreoffice_path = ""
+
+    if(os.path.isfile(libreoffice_x64_path)):
+        libreoffice_path = libreoffice_x64_path
+
+    elif(os.path.isfile(libreoffice_x86_path)):
+
+        libreoffice_path = libreoffice_x86_path
+    
+    elif(os.environ.get('Path').count("libreoffice\\program") >= 1):
+
+        libreoffice_path = "soffice"
+
+    return libreoffice_path
+    
 
 def doc_to_pdf(pdf_filename, doc_files):
     '''
@@ -247,27 +275,33 @@ def doc_to_pdf(pdf_filename, doc_files):
 
         os.chdir(os.getcwd() + "\\" + os.path.dirname(doc_file))
 
-        libreoffice = subprocess.Popen("soffice --convert-to "+ 
-            str(doc_counter) + "py.pdf "+ os.path.basename(doc_file))
 
-        libreoffice.wait()
+
+        if not check_libreoffice_install() == "":
+
+            libreoffice = subprocess.Popen(check_libreoffice_install() +
+                " --convert-to "+ str(doc_counter) + 
+                "py.pdf "+ os.path.basename(doc_file))
+            libreoffice.wait()
         
-        converted_docs.append(os.path.dirname(doc_file) + "\\" + 
-            os.path.splitext(os.path.basename(doc_file))[0] + "." + 
-            str(doc_counter) + "py.pdf")
+            converted_docs.append(os.path.dirname(doc_file) + "\\" + 
+                os.path.splitext(os.path.basename(doc_file))[0] + "." + 
+                str(doc_counter) + "py.pdf")
 
-        doc_counter += 1
+            doc_counter += 1
+
         os.chdir(base_dir)
 
     doc_counter = 1
 
+    if not check_libreoffice_install() == "":
     # merge all created pdfs into one pdf
-    doc_merger = PdfFileMerger()
-    for converted_doc in converted_docs:
-        doc_merger.append(converted_doc)
+        doc_merger = PdfFileMerger()
+        for converted_doc in converted_docs:
+            doc_merger.append(converted_doc)
 
-    doc_merger.write(pdf_filename + "_docs_" + ".pdf")
-    doc_merger.close()            
+        doc_merger.write(pdf_filename + "_docs_" + ".pdf")
+        doc_merger.close()            
 
 
 
@@ -389,22 +423,28 @@ def merge_categories(curr_student):
 
     fullmerger = PdfFileMerger()
 
+    at_least_one_file = False
     # add existing merged file format specific pdfs to merger
     if os.path.isfile(curr_student + "_pdfs_" + ".pdf"):
         fullmerger.append(curr_student + "_pdfs_" + ".pdf")
+        at_least_one_file = True
 
     if os.path.isfile(curr_student + "_img_" + ".pdf"):
         fullmerger.append(curr_student + "_img_" + ".pdf")
-    
+        at_least_one_file = True
+
     if os.path.isfile(curr_student + "_docs_" + ".pdf"):
         fullmerger.append(curr_student + "_docs_" + ".pdf")
+        at_least_one_file = True
 
     if os.path.isfile(curr_student + "_txts_" + ".pdf"):
         fullmerger.append(curr_student + "_txts_" + ".pdf")
+        at_least_one_file = True
     
-    # merge pdfs and create pdf with reversed name
-    fullmerger.write(os.path.dirname(curr_student) + "\\" + 
-        student_name_reversed  + ".pdf")
+    if at_least_one_file:
+        # merge pdfs and create pdf with reversed name
+        fullmerger.write(os.path.dirname(curr_student) + "\\" + 
+            student_name_reversed  + ".pdf")
     fullmerger.close()
 
     
