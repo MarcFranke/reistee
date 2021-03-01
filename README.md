@@ -1,13 +1,14 @@
 Reistee Extracts IServ - Teachers' Easy Extractor
 =======
 
-### Practical tool for teachers recieving student solutions on IServ.
+### Practical tool for teachers receiving student solutions on IServ.
 
 When downloading student solutions from IServ you get a zip-file containing a folder for each student. These folders may contain many files of different formats. Extracting and merging them every week for correction is a tedious task. reistee aims to make this easier for teachers. Just drag and drop the zip-file onto the reistee.exe or reistee.py and all recognised files will be merged into one single pdf for every student. The pdf will be named "lastname, fistname.pdf" for better sorting in the file explorer.
 
 ### Download
 
-Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases). LibreOffice is needed for converting odt, doc and docx files. Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable.
+Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases/download/v0.00.78-alpha/reistee.exe). LibreOffice is needed for converting odt, doc and docx files. Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable.
+
 
 ### Usage
 
