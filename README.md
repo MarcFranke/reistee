@@ -1,4 +1,4 @@
-Reistee Extracts IServ - Teacher's Easy Extractor
+Reistee Extracts IServ - Teachers' Easy Extractor
 =======
 
 ### Practical tool for teachers recieving student solutions on IServ.
@@ -7,7 +7,7 @@ When downloading student solutions from IServ you get a zip-file containing a fo
 
 ### Download
 
-Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases). Libreoffice is needed for converting odt, doc and docx files. Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable.
+Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases). LibreOffice is needed for converting odt, doc and docx files. Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable.
 
 ### Usage
 
@@ -21,6 +21,14 @@ A folder called `solutions - reistee` will be created, with one pdf for every st
 Q: How do I use this?
 
 A: Look above.
+
+Q: Does OpenOffice also work?
+
+A: Sadly no, as OpenOffice does not provide a way to convert files to pdf via commandline.
+
+Q: Does MS Word also work?
+
+A: Maybe? The code for converting files with MS Word was added in Version 0.00.787. But since I currently do not have access to a PC with MS Word, I cannot test this. I am happy for feedback from people who can test this.
 
 Q: odt, doc and docx Documents are not included in the pdf!?
 

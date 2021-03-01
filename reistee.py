@@ -4,6 +4,7 @@ import os               # various uses: navigation, deletion, paths
 import shutil           # mainly for moving and deleting files
 import subprocess       # for running libreoffice in background
 import functools        # used for rotating images by metadata
+from docx2pdf import convert
 from fpdf import FPDF               # for creating pdf from images
 from PIL import Image               # for opening images
 from PyPDF2 import PdfFileMerger    # for merging pdfs
@@ -220,7 +221,7 @@ def pic_to_pdf(pdf_filename, picture_files):
 
 def check_libreoffice_install():
     '''
-    Checks, if Libreoffice is installed in the default
+    Checks, if LibreOffice or OpenOffice is installed in the default
     directories or if it is listed in the path environmental
     variable. If not, returns an empty string
     '''
@@ -234,16 +235,19 @@ def check_libreoffice_install():
 
     libreoffice_path = ""
 
-    if(os.path.isfile(libreoffice_x64_path)):
-        libreoffice_path = libreoffice_x64_path
 
-    elif(os.path.isfile(libreoffice_x86_path)):
+    if(os.path.isfile(libreoffice_x86_path)):
 
         libreoffice_path = libreoffice_x86_path
-    
-    elif(os.environ.get('Path').count("libreoffice\\program") >= 1):
+
+    elif(os.path.isfile(libreoffice_x64_path)):
+        libreoffice_path = libreoffice_x64_path
+
+    elif(os.environ.get('Path').count("libreoffice\\program") > 0 or 
+        os.environ.get('Path').count("openoffice\\program") > 0):
 
         libreoffice_path = "soffice"
+    
 
     return libreoffice_path
     
@@ -290,11 +294,29 @@ def doc_to_pdf(pdf_filename, doc_files):
 
             doc_counter += 1
 
+
+        # Should convert doc, docx and odt with MS Word. NOT TESTED! 
+        else:
+            try:
+                (convert(doc_file, 
+                    os.path.splitext(os.path.basename(doc_file))[0] + "." +
+                    str(doc_counter) + "py.pdf"))
+                
+                converted_docs.append(os.path.dirname(doc_file) + "\\" + 
+                    os.path.splitext(os.path.basename(doc_file))[0] + "." + 
+                    str(doc_counter) + "py.pdf")
+
+                doc_counter += 1
+
+            except Exception:
+                print("No Office installed")
+
         os.chdir(base_dir)
+
 
     doc_counter = 1
 
-    if not check_libreoffice_install() == "":
+    if not len(converted_docs) == 0:
     # merge all created pdfs into one pdf
         doc_merger = PdfFileMerger()
         for converted_doc in converted_docs:
@@ -498,7 +520,7 @@ if __name__ == "__main__":
     '''
     Reistee Extracts IServ - Teachers Easy Extractor
     Autor: Marc Franke
-    Version: 0.00.78
+    Version: 0.00.787
     
     With reistee you can easily extract student solution zips
     downloaded from IServ.
