@@ -4,10 +4,11 @@ import os               # various uses: navigation, deletion, paths
 import shutil           # mainly for moving and deleting files
 import subprocess       # for running libreoffice in background
 import functools        # used for rotating images by metadata
-from docx2pdf import convert
 from fpdf import FPDF               # for creating pdf from images
 from PIL import Image               # for opening images
 from PyPDF2 import PdfFileMerger    # for merging pdfs
+
+
 
 
 def remove_unnecassary_symbols(dirpath, filename):
@@ -110,18 +111,17 @@ def categorise_file(dirpath, filename, file_lists):
 
     elif (file_to_conv_path.endswith(".doc") or 
             file_to_conv_path.endswith(".docx") or 
-            file_to_conv_path.endswith(".odt")):
+            file_to_conv_path.endswith(".odt") or 
+            file_to_conv_path.endswith(".txt")):
 
         doc_files.append(file_to_conv_path)
-
-    elif file_to_conv_path.endswith(".txt"):
-
-        txt_files.append(file_to_conv_path)
 
     else:
         return False
         
     return True
+
+
 
 
 # Thanks to Roman Odaisky for this solution to why the images were
@@ -189,30 +189,39 @@ def pic_to_pdf(pdf_filename, picture_files):
     for picture_file in picture_files:
 
         # Open picture and rotate if stated in pictures metadata
-        cover = Image.open(str(picture_file))
-        cover_transposed = image_transpose_exif(cover)
-        cover_transposed.save(str(picture_file))
-        width, height = cover_transposed.size
+        try:
+            cover = Image.open(str(picture_file))
+            cover_transposed = image_transpose_exif(cover)
+            cover_transposed.save(str(picture_file))
+            width, height = cover_transposed.size
 
-        # create temporary pdf, with _imgpdf_ in filename
-        pdf = FPDF(unit = "pt", format = [width, height])
-        pdf.add_page()
-        pdf.image(str(picture_file), 0, 0)
+            # create temporary pdf, with _imgpdf_ in filename
+            pdf = FPDF(unit = "pt", format = [width, height])
+            pdf.add_page()
+            pdf.image(str(picture_file), 0, 0)
 
-        img_pdf_counter += 1
+            img_pdf_counter += 1
 
-        pdf.output(pdf_filename + "_imgpdf_" + 
-            str(img_pdf_counter) + ".pdf", "F")
+            pdf.output(pdf_filename + "_imgpdf_" + 
+                str(img_pdf_counter) + ".pdf", "F")
 
-        pdf_list.append(pdf_filename + "_imgpdf_" + 
-            str(img_pdf_counter) + ".pdf")
+            pdf_list.append(pdf_filename + "_imgpdf_" + 
+                str(img_pdf_counter) + ".pdf")
+        except Image.UnidentifiedImageError:
+            print("Can't open image: " + 
+                os.path.basename(pdf_filename) + 
+                "\\" + os.path.basename(picture_file) + " : " +
+                "May be damaged or not correctly converted.")
+            move_file_to_folder(picture_file, pdf_filename)
+
 
     # merge all _imgpdf_ files
-    img_merger = PdfFileMerger()
-    for pdf in pdf_list:
-        img_merger.append(pdf)
-    img_merger.write(pdf_filename + "_img_" + ".pdf")
-    img_merger.close()
+    if len(pdf_list) > 0:
+        img_merger = PdfFileMerger(strict=False)
+        for pdf in pdf_list:
+            img_merger.append(pdf)
+        img_merger.write(pdf_filename + "_img_" + ".pdf")
+        img_merger.close()
 
     # remove all _imgpdf_ Files
     for pdf in pdf_list:
@@ -252,6 +261,7 @@ def check_libreoffice_install():
     return libreoffice_path
     
 
+
 def doc_to_pdf(pdf_filename, doc_files):
     '''
     Converts a list of odt, doc and docx Files into one pdf-File that 
@@ -279,14 +289,13 @@ def doc_to_pdf(pdf_filename, doc_files):
 
         os.chdir(os.getcwd() + "\\" + os.path.dirname(doc_file))
 
-
-
         if not check_libreoffice_install() == "":
+
 
             libreoffice = subprocess.Popen(check_libreoffice_install() +
                 " --convert-to "+ str(doc_counter) + 
-                "py.pdf "+ os.path.basename(doc_file))
-            libreoffice.wait()
+                "py.pdf "+ "\"" + os.path.basename(doc_file)+ "\"")
+            test = libreoffice.wait()
         
             converted_docs.append(os.path.dirname(doc_file) + "\\" + 
                 os.path.splitext(os.path.basename(doc_file))[0] + "." + 
@@ -297,19 +306,26 @@ def doc_to_pdf(pdf_filename, doc_files):
 
         # Should convert doc, docx and odt with MS Word. NOT TESTED! 
         else:
+            new_name = (os.path.dirname(doc_file) + "\\" +
+                os.path.splitext(os.path.basename(doc_file))[0] + 
+                "." + str(doc_counter) + "py.pdf")
+
             try:
-                (convert(doc_file, 
-                    os.path.splitext(os.path.basename(doc_file))[0] + "." +
-                    str(doc_counter) + "py.pdf"))
-                
+                word = os.client.DispatchEx("Word.Application")
+                worddoc = word.Documents.Open(doc_file)
+                worddoc.SaveAs(new_name, FileFormat = 17)
                 converted_docs.append(os.path.dirname(doc_file) + "\\" + 
                     os.path.splitext(os.path.basename(doc_file))[0] + "." + 
                     str(doc_counter) + "py.pdf")
-
                 doc_counter += 1
+                worddoc.Close()
+                word.Quit()
 
-            except Exception:
-                print("No Office installed")
+            except Exception as e:
+                os.chdir(base_dir)
+                print("No Office installed. Please install LibreOffice!")
+                
+                move_file_to_folder(doc_file, pdf_filename)
 
         os.chdir(base_dir)
 
@@ -318,7 +334,7 @@ def doc_to_pdf(pdf_filename, doc_files):
 
     if not len(converted_docs) == 0:
     # merge all created pdfs into one pdf
-        doc_merger = PdfFileMerger()
+        doc_merger = PdfFileMerger(strict=False)
         for converted_doc in converted_docs:
             doc_merger.append(converted_doc)
 
@@ -392,7 +408,7 @@ def merge_files_per_category(curr_student, categorized_files):
 
         pdf_files.sort()
 
-        pdf_merger = PdfFileMerger()
+        pdf_merger = PdfFileMerger(strict=False)
         for pdf in pdf_files:
             pdf_merger.append(pdf)
 
@@ -404,22 +420,7 @@ def merge_files_per_category(curr_student, categorized_files):
         doc_files.sort()
 
         doc_to_pdf(curr_student, doc_files)
-
-    if len(txt_files) != 0:
-        
-        txt_files.sort()
-
-        pdf = FPDF() 
-
-        for txt_file in txt_files:
-            pdf.add_page() 
-            pdf.set_font("Arial", size = 15) 
-            f = open(txt_file, "r") 
-            for x in f: 
-                pdf.cell(200, 10, txt = x, ln = 1, align = 'L') 
-        
-        
-        pdf.output(curr_student + "_txts_" + ".pdf")    
+    
 
 
 
@@ -443,7 +444,7 @@ def merge_categories(curr_student):
         (os.path.basename(curr_student)).split(" ")[0])
 
 
-    fullmerger = PdfFileMerger()
+    fullmerger = PdfFileMerger(strict=False)
 
     at_least_one_file = False
     # add existing merged file format specific pdfs to merger
@@ -459,9 +460,6 @@ def merge_categories(curr_student):
         fullmerger.append(curr_student + "_docs_" + ".pdf")
         at_least_one_file = True
 
-    if os.path.isfile(curr_student + "_txts_" + ".pdf"):
-        fullmerger.append(curr_student + "_txts_" + ".pdf")
-        at_least_one_file = True
     
     if at_least_one_file:
         # merge pdfs and create pdf with reversed name
@@ -480,8 +478,6 @@ def merge_categories(curr_student):
     if os.path.isfile(curr_student + "_docs_" + ".pdf"):
         os.remove(curr_student + "_docs_" + ".pdf")
 
-    if os.path.isfile(curr_student + "_txts_" + ".pdf"):
-        os.remove(curr_student + "_txts_" + ".pdf")
 
 
 def create_merged_pdfs(dir_name):
