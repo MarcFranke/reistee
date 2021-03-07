@@ -94,7 +94,7 @@ def categorise_file(dirpath, filename, file_lists):
     '''
 
 
-    picture_files, pdf_files, doc_files, txt_files = file_lists
+    picture_files, pdf_files, doc_files = file_lists
     file_to_conv_path = dirpath + "\\" + filename
 
     # Sort file into correct list. If file format is not recognized,
@@ -115,7 +115,6 @@ def categorise_file(dirpath, filename, file_lists):
             file_to_conv_path.endswith(".txt")):
 
         doc_files.append(file_to_conv_path)
-
     else:
         return False
         
@@ -230,7 +229,7 @@ def pic_to_pdf(pdf_filename, picture_files):
 
 def check_libreoffice_install():
     '''
-    Checks, if LibreOffice or OpenOffice is installed in the default
+    Checks, if LibreOffice is installed in the default
     directories or if it is listed in the path environmental
     variable. If not, returns an empty string
     '''
@@ -252,13 +251,27 @@ def check_libreoffice_install():
     elif(os.path.isfile(libreoffice_x64_path)):
         libreoffice_path = libreoffice_x64_path
 
-    elif(os.environ.get('Path').count("libreoffice\\program") > 0 or 
-        os.environ.get('Path').count("openoffice\\program") > 0):
+    elif(os.environ.get('Path').count("libreoffice\\program") > 0):
 
         libreoffice_path = "soffice"
     
 
     return libreoffice_path
+
+
+def check_imagemagick_install():
+    '''
+    Checks, if LibreOffice is listed in the path environmental
+    variable. If not, returns False
+    '''
+
+
+    if(os.environ.get('Path').count("ImageMagick") > 0):
+
+        return True
+    
+
+    return False
     
 
 
@@ -360,8 +373,7 @@ def iterate_and_categorize(curr_student):
     picture_files = []
     pdf_files = []
     doc_files = []
-    txt_files = []
-    file_lists = (picture_files, pdf_files, doc_files, txt_files)
+    file_lists = (picture_files, pdf_files, doc_files)
     
 
     for dirpath, dirnames, filenames in os.walk(curr_student):
@@ -369,6 +381,17 @@ def iterate_and_categorize(curr_student):
         for filename in filenames:
 
             filename = remove_unnecassary_symbols(dirpath, filename)
+
+            if filename.endswith(".heic"):
+                if check_imagemagick_install():
+                    full_filename = dirpath + "\\" + filename
+                    im = subprocess.Popen(["magick", "%s" % full_filename, "%s" % (full_filename[0:-5] + '.jpg')])
+                    response = im.wait()
+                    filename = filename.replace(".heic",".jpg")
+                else:
+                    print(".heic Image found, but no ImageMagick installed. Please install from https://imagemagick.org/")
+
+            
 
             if not categorise_file(dirpath, filename, file_lists):
                 move_file_to_folder(dirpath + "\\" + filename, curr_student)
@@ -394,7 +417,7 @@ def merge_files_per_category(curr_student, categorized_files):
     the correct format
     '''
 
-    picture_files, pdf_files, doc_files, txt_files = categorized_files
+    picture_files, pdf_files, doc_files = categorized_files
 
     # First sort list and then generate pdf from its elements, either
     # by calling a method or doing it here.
@@ -516,7 +539,7 @@ if __name__ == "__main__":
     '''
     Reistee Extracts IServ - Teachers Easy Extractor
     Autor: Marc Franke
-    Version: 0.00.787
+    Version: 0.00.787.4
     
     With reistee you can easily extract student solution zips
     downloaded from IServ.
