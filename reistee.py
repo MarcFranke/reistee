@@ -8,6 +8,38 @@ from fpdf import FPDF               # for creating pdf from images
 from PIL import Image               # for opening images
 from PyPDF2 import PdfFileMerger    # for merging pdfs
 
+libreoffice_timeout = 20
+
+def syscmd(cmd, encoding=''):
+    """
+    Runs a command on the system, waits for the command to finish, and then
+    returns the text output of the command. If the command produces no text
+    output, the command's return code will be returned instead.
+
+    Parameters
+    ----------
+    cmd: The console command to execute
+    encoding: encoding of command output
+    """
+    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, 
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    p.wait()
+    output = p.stdout.read()
+    if len(output) > 1:
+        if encoding: return output.decode(encoding)
+        else: return output
+    return p.returncode
+
+ 
+def kill_by_process_name(name):
+    """
+    Attempts to kill a windows task via taskkill command. 
+
+    Parameters
+    ----------
+    name: Name of the task to kill (e.g. cmd.exe)
+    """
+    syscmd("taskkill /f /im " + name)
 
 
 
@@ -30,6 +62,32 @@ def remove_unnecassary_symbols(dirpath, filename):
     return os.path.basename(filename)
 
 
+def reverse_student_name(curr_student):
+    '''
+    Reverses the name of the student, so student named "John William Smith"
+    becomes "Smith, John William". This is important for naming the merged
+    files, besause most student list are sorted alphabetically by last name,
+    while IServ sorts them alphabetically by first name.
+
+    Parameters
+    ----------
+    curr_student: The foldername and path of the student (foldername is the
+    student name).
+    '''
+
+    student_name_split = os.path.basename(curr_student).split(" ")
+
+    student_name_reversed = student_name_split[len(student_name_split) - 1]
+
+    student_name_split.pop()
+
+    student_name_reversed += (",")
+
+    for student_name in student_name_split:
+        student_name_reversed += (" " + student_name)
+
+    return student_name_reversed
+
 
 def move_file_to_folder(file_with_path, curr_student):
     '''
@@ -48,21 +106,24 @@ def move_file_to_folder(file_with_path, curr_student):
 
     '''
 
+    if not (os.path.isfile(file_with_path)):
+        return
+    
+
     folder_path = os.path.dirname(curr_student) + "\\"
     filename = os.path.basename(file_with_path)
     file_ext = os.path.splitext(filename)[1]
 
-    folder_name_reversed = (
-        (os.path.basename(curr_student)).split(" ")[1] + ", " + 
-        (os.path.basename(curr_student)).split(" ")[0])
+    folder_name_reversed = reverse_student_name(curr_student)
 
-    #
+
     if os.path.isfile(folder_path + folder_name_reversed + file_ext):
 
         file_counter = 1
 
         while os.path.isfile(folder_path + folder_name_reversed + 
                                 str(file_counter) + file_ext):
+
             file_counter += 1
             shutil.move(file_with_path, folder_path + 
                 folder_name_reversed + str(file_counter) + file_ext)
@@ -99,6 +160,9 @@ def categorise_file(dirpath, filename, file_lists):
 
     # Sort file into correct list. If file format is not recognized,
     # return false
+    if not (os.path.isfile(file_to_conv_path)):
+        return False
+
     if (file_to_conv_path.endswith(".jpg") or 
         file_to_conv_path.endswith(".jpeg") or 
         file_to_conv_path.endswith(".png")):
@@ -112,9 +176,18 @@ def categorise_file(dirpath, filename, file_lists):
     elif (file_to_conv_path.endswith(".doc") or 
             file_to_conv_path.endswith(".docx") or 
             file_to_conv_path.endswith(".odt") or 
-            file_to_conv_path.endswith(".txt")):
+            file_to_conv_path.endswith(".txt") or 
+            file_to_conv_path.endswith(".odp") or 
+            file_to_conv_path.endswith(".pptx") or 
+            file_to_conv_path.endswith(".ppt") or 
+            file_to_conv_path.endswith(".ods") or
+            file_to_conv_path.endswith(".xlsx") or 
+            file_to_conv_path.endswith(".xls") or
+            file_to_conv_path.endswith(".ppsx")
+            ):
 
         doc_files.append(file_to_conv_path)
+
     else:
         return False
         
@@ -206,6 +279,8 @@ def pic_to_pdf(pdf_filename, picture_files):
 
             pdf_list.append(pdf_filename + "_imgpdf_" + 
                 str(img_pdf_counter) + ".pdf")
+
+
         except Image.UnidentifiedImageError:
             print("Can't open image: " + 
                 os.path.basename(pdf_filename) + 
@@ -261,16 +336,14 @@ def check_libreoffice_install():
 
 def check_imagemagick_install():
     '''
-    Checks, if LibreOffice is listed in the path environmental
-    variable. If not, returns False
+    Checks, if ImageMagick is listed in the path environmental
+    variable. If not, returns False.
     '''
-
 
     if(os.environ.get('Path').count("ImageMagick") > 0):
 
         return True
     
-
     return False
     
 
@@ -302,20 +375,30 @@ def doc_to_pdf(pdf_filename, doc_files):
 
         os.chdir(os.getcwd() + "\\" + os.path.dirname(doc_file))
 
+
         if not check_libreoffice_install() == "":
 
-
             libreoffice = subprocess.Popen(check_libreoffice_install() +
-                " --convert-to "+ str(doc_counter) + 
+                " --nolockcheck --convert-to "+ str(doc_counter) + 
                 "py.pdf "+ "\"" + os.path.basename(doc_file)+ "\"")
-            test = libreoffice.wait()
-        
-            converted_docs.append(os.path.dirname(doc_file) + "\\" + 
+
+            try:
+                test = libreoffice.wait(libreoffice_timeout)
+                converted_docs.append(os.path.dirname(doc_file) + "\\" + 
                 os.path.splitext(os.path.basename(doc_file))[0] + "." + 
                 str(doc_counter) + "py.pdf")
+                doc_counter += 1
 
-            doc_counter += 1
-
+            except subprocess.TimeoutExpired as timeout:
+                libreoffice.terminate()
+                kill_by_process_name("soffice.com")
+                kill_by_process_name("soffice.bin")
+                kill_by_process_name("soffice.exe")
+                os.chdir(base_dir)
+                move_file_to_folder(doc_file, pdf_filename)
+                print("Konvertierung hat Zeitlimit überschritten. "+
+                "Datei wurde unkonvertiert kopiert.")
+        
 
         # Should convert doc, docx and odt with MS Word. NOT TESTED! 
         else:
@@ -327,9 +410,7 @@ def doc_to_pdf(pdf_filename, doc_files):
                 word = os.client.DispatchEx("Word.Application")
                 worddoc = word.Documents.Open(doc_file)
                 worddoc.SaveAs(new_name, FileFormat = 17)
-                converted_docs.append(os.path.dirname(doc_file) + "\\" + 
-                    os.path.splitext(os.path.basename(doc_file))[0] + "." + 
-                    str(doc_counter) + "py.pdf")
+                converted_docs.append(new_name)
                 doc_counter += 1
                 worddoc.Close()
                 word.Quit()
@@ -383,16 +464,20 @@ def iterate_and_categorize(curr_student):
             filename = remove_unnecassary_symbols(dirpath, filename)
 
             if filename.endswith(".heic"):
+
                 if check_imagemagick_install():
                     full_filename = dirpath + "\\" + filename
-                    im = subprocess.Popen(["magick", "%s" % full_filename, "%s" % (full_filename[0:-5] + '.jpg')])
+                    im = subprocess.Popen(["magick", "%s" % full_filename,
+                        "%s" % (full_filename[0:-5] + '.jpg')])
                     response = im.wait()
-                    filename = filename.replace(".heic",".jpg")
+                    new_filename = filename.replace(".heic",".jpg")
+                    filename = new_filename
+
                 else:
-                    print(".heic Image found, but no ImageMagick installed. Please install from https://imagemagick.org/")
+                    print(".heic Image found, but no ImageMagick installed."+
+                        " Please install from https://imagemagick.org/")
 
             
-
             if not categorise_file(dirpath, filename, file_lists):
                 move_file_to_folder(dirpath + "\\" + filename, curr_student)
     
@@ -462,24 +547,26 @@ def merge_categories(curr_student):
     for naming pdf.
     '''
 
-    student_name_reversed = (
-        (os.path.basename(curr_student)).split(" ")[1] + ", " + 
-        (os.path.basename(curr_student)).split(" ")[0])
+    student_name_reversed = reverse_student_name(curr_student)
 
 
     fullmerger = PdfFileMerger(strict=False)
 
     at_least_one_file = False
+
     # add existing merged file format specific pdfs to merger
     if os.path.isfile(curr_student + "_pdfs_" + ".pdf"):
+
         fullmerger.append(curr_student + "_pdfs_" + ".pdf")
         at_least_one_file = True
 
     if os.path.isfile(curr_student + "_img_" + ".pdf"):
+
         fullmerger.append(curr_student + "_img_" + ".pdf")
         at_least_one_file = True
 
     if os.path.isfile(curr_student + "_docs_" + ".pdf"):
+
         fullmerger.append(curr_student + "_docs_" + ".pdf")
         at_least_one_file = True
 
@@ -488,6 +575,8 @@ def merge_categories(curr_student):
         # merge pdfs and create pdf with reversed name
         fullmerger.write(os.path.dirname(curr_student) + "\\" + 
             student_name_reversed  + ".pdf")
+
+
     fullmerger.close()
 
     
@@ -531,15 +620,20 @@ def create_merged_pdfs(dir_name):
         merge_categories(student_folder)
 
         # Remove student dir (cleanup)
-        shutil.rmtree(student_folder)
+        try:
+            shutil.rmtree(student_folder)
 
+        except PermissionError as permission:
+            print("Einige Daten konnten nicht gelöscht werden, da " + 
+            "möglicherweise ein anderer Prozess auf sie zugreift. Dies "+
+            "kann durch beschädigte Dateien entstehen.")
 
 
 if __name__ == "__main__":
     '''
     Reistee Extracts IServ - Teachers Easy Extractor
     Autor: Marc Franke
-    Version: 0.00.787.4
+    Version: 0.00.787.49
     
     With reistee you can easily extract student solution zips
     downloaded from IServ.
