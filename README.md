@@ -7,7 +7,7 @@ When downloading student solutions from IServ you get a zip-file containing a fo
 
 ### Download
 
-Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases/download/v0.00.787.4-alpha/reistee.exe). LibreOffice is needed for converting odt, doc and docx files. It can be downloaded [here](https://www.libreoffice.org/). Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable. If you also want to convert heic Images, you also need ImageMagick installed. It can be downloaded [here](https://imagemagick.org/script/download.php).
+Download the latest [release for windows here](https://github.com/MarcFranke/reistee/releases/download/v0.00.787.49-alpha/reistee.exe). LibreOffice is needed for converting odt, doc and docx files. It can be downloaded [here](https://www.libreoffice.org/). Be sure to either have it installed in the standard directory (C:\Program Files\LibreOffice), or that the directory libreoffice\program is in your PATH environment variable. If you also want to convert heic Images, you also need ImageMagick installed. It can be downloaded [here](https://imagemagick.org/script/download.php).
 
 
 ### Usage
